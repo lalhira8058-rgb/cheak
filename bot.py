@@ -1,4 +1,5 @@
 from telethon import TelegramClient, events, Button
+from telethon.sessions import StringSession
 import asyncio
 import aiohttp
 import aiofiles
@@ -14,7 +15,7 @@ API_HASH = '1ebb44855df1c3ef005b72904d122fd3'
 BOT_TOKEN = '8912938539:AAFsQCkxKod6lVBUpX8yuwLozmyb_PiNDcw'
 ADMIN_ID = [6505395037,8674966655]
 CHECKER_API_URL = 'http://chirag-x-shopify-production.up.railway.app/shopify'
-SESSION_STRING = "BQJWDkgAn9wyRihvkcSrHZ5d_AwIEBM7C0BIcTxhKQudJwDsRxJjHYqpPYZB7FQxdJQ05KcwJw8gUtYm-uyhugDPSkoXI0fVKD9xeQal8ELg8FHKpYr1FgH_MxwIicop02Mwu67tRZ9DwCzU7WD0-Xsh6trp0NQjwivvyZj_5LvXeLZw3hX1DL99vgPRoiY2MmJjpE2Vwbc2kJaTQ1vg-b2iwo16ceiWVdTan_GShElkrouXjCEBlTxv6ZP7YzE2ECVNDCByFce2kJ7zlLxmWm1g6v9Y8GBHEez1pQhzLiwlzdNCeilqjj719wDd02rKewyRv-jWuDpsJw0UMhyCGH7n6dLM5wAAAAGDwHNdAA"
+SESSION_STRING = "BQJWDkgAn9wyRihvkcSrHZ5d_AwIEBM7C0BIcTxhKQudJwDsRxJjHYqpPYZB7FQxdJQ05KcwJw8gUtYm-uyhugDPSkoXI0fVKD9xeQal8ELg8FHKpYr1FgH_MxwIicop02Mwu67tRZ9DwCzU7WD0-Xsh6trp0NQjwivvyZj_5LvXeLZw3hX1DL99vgPRoiY2MmJjpE2Vwbc2kJaTQ1vg-b2iwo16ceiWVdTan_GShElkrouXjCEBlTxv6ZP7YzE2ECVNDCByFce2kJ7zlLxmWm1g6v9Y8GBHEez1pQhzLiwlzdNCeilqjj719wDd02rKewyRv-jWuDpsJw0UMhyCGH7n6dLM5wAAAAGDwHNdAABQJWDkgAn9wyRihvkcSrHZ5d_AwIEBM7C0BIcTxhKQudJwDsRxJjHYqpPYZB7FQxdJQ05KcwJw8gUtYm-uyhugDPSkoXI0fVKD9xeQal8ELg8FHKpYr1FgH_MxwIicop02Mwu67tRZ9DwCzU7WD0-Xsh6trp0NQjwivvyZj_5LvXeLZw3hX1DL99vgPRoiY2MmJjpE2Vwbc2kJaTQ1vg-b2iwo16ceiWVdTan_GShElkrouXjCEBlTxv6ZP7YzE2ECVNDCByFce2kJ7zlLxmWm1g6v9Y8GBHEez1pQhzLiwlzdNCeilqjj719wDd02rKewyRv-jWuDpsJw0UMhyCGH7n6dLM5wAAAAGDwHNdAA"
 
 
 
@@ -26,7 +27,7 @@ SITES_WITH_PRICE_FILE = "sites_price.json"
 KEYS_FILE = "keys.json"
 HITS_CHANNEL_ID = 0
 
-bot = TelegramClient('checker_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
 active_sessions = {}
 TEMP_FILE_DATA = {}
