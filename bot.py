@@ -1,5 +1,4 @@
 from telethon import TelegramClient, events, Button
-from telethon.sessions import StringSession
 import asyncio
 import aiohttp
 import aiofiles
@@ -27,7 +26,7 @@ SITES_WITH_PRICE_FILE = "sites_price.json"
 KEYS_FILE = "keys.json"
 HITS_CHANNEL_ID = 0
 
-bot = TelegramClient(StringSession(SESSION_STRING), API_ID, API_HASH).start(bot_token=BOT_TOKEN)
+bot = TelegramClient('checker_bot', API_ID, API_HASH).start(bot_token=BOT_TOKEN)
 
 active_sessions = {}
 TEMP_FILE_DATA = {}
