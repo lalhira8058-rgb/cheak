@@ -9,9 +9,9 @@ import json
 import re
 from datetime import datetime, timedelta
 
-API_ID = 25508845
-API_HASH = 'c0b483541482a4ed457c39c5e21b1595'
-BOT_TOKEN = '8828345521:AAFCUi4YEuvAlwllRCiM20CA0qBUP4cFNRI'
+API_ID = 39194184
+API_HASH = '1ebb44855df1c3ef005b72904d122fd3'
+BOT_TOKEN = '8912938539:AAFsQCkxKod6lVBUpX8yuwLozmyb_PiNDcw'
 ADMIN_ID = [6505395037,8674966655]
 CHECKER_API_URL = 'http://chirag-x-shopify-production.up.railway.app/shopify'
 
