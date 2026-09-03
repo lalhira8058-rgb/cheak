@@ -2,6 +2,7 @@ from telethon import TelegramClient, events, Button
 import asyncio
 import aiohttp
 import aiofiles
+import base64
 import os
 import random
 import time
@@ -9,12 +10,13 @@ import json
 import re
 from datetime import datetime, timedelta
 
-API_ID = 39194184
-API_HASH = '1ebb44855df1c3ef005b72904d122fd3'
-BOT_TOKEN = '8912938539:AAFsQCkxKod6lVBUpX8yuwLozmyb_PiNDcw'
+API_ID = 25508845
+API_HASH = 'c0b483541482a4ed457c39c5e21b1595'
+BOT_TOKEN = '8828345521:AAFCUi4YEuvAlwllRCiM20CA0qBUP4cFNRI'
 ADMIN_ID = [6505395037,8674966655]
 CHECKER_API_URL = 'http://chirag-x-shopify-production.up.railway.app/shopify'
-SESSION_STRING = ""
+RAZORPAY_KEY_ID = 'rzp_test_TX4VmDiHNLPTaH'
+RAZORPAY_KEY_SECRET = 'zakCJxv4rywERwmPJNEngrHc'
 
 
 
@@ -1023,7 +1025,46 @@ def detect_analytics(html: str, srcs: list[str]) -> list[str]:
     return found
 
 
-@bot.on(events.NewMessage(pattern='/start'))
+async def razorpay_create_order(amount):
+    try:
+        auth = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
+        headers = {
+            'Authorization': f'Basic {auth}',
+            'Content-Type': 'application/json'
+        }
+        data = {
+            'amount': int(amount * 100),
+            'currency': 'INR',
+            'receipt': f'receipt_{int(time.time())}'
+        }
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post('https://api.razorpay.com/v1/orders', json=data, headers=headers) as resp:
+                result = await resp.json()
+                if resp.status == 200:
+                    return {'status': 'success', 'order_id': result['id'], 'amount': result['amount'], 'currency': result['currency']}
+                else:
+                    return {'status': 'error', 'message': result.get('error', {}).get('description', 'Unknown error')}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
+
+async def razorpay_check_connection():
+    try:
+        auth = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
+        headers = {
+            'Authorization': f'Basic {auth}',
+            'Content-Type': 'application/json'
+        }
+        timeout = aiohttp.ClientTimeout(total=15)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get('https://api.razorpay.com/v1/payments', headers=headers) as resp:
+                result = await resp.json()
+                if resp.status == 200:
+                    return {'status': 'connected', 'count': result.get('count', 0)}
+                else:
+                    return {'status': 'error', 'message': result.get('error', {}).get('description', 'Auth failed')}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)}
 async def start(event):
     user_id = event.sender_id
     is_prem = is_premium(user_id)
@@ -1077,6 +1118,35 @@ async def show_commands_callback(event):
 └─ <code>/redeem Kᴇʏ</code> → Rᴇᴅᴇᴇᴍ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴋᴇʏ """
     buttons = [[Button.inline(" Bᴀᴄᴋ", b"main_menu", style="danger", icon=5445365692004071819)]]
     await event.edit(premium_emoji(commands_text), buttons=buttons, parse_mode='html')
+
+@bot.on(events.NewMessage(pattern='/razorpay'))
+async def razorpay_test(event):
+    user_id = event.sender_id
+    if user_id not in ADMIN_ID:
+        await event.reply(premium_emoji("❌ Aᴅᴍɪɴ ᴏɴʟʏ!"), parse_mode='html')
+        return
+    status_msg = await event.reply(premium_emoji("🔄 Cʜᴇᴄᴋɪɴɢ Rᴀᴢᴏʀᴘᴀʏ ᴄᴏɴɴᴇᴄᴛɪᴏɴ..."), parse_mode='html')
+    result = await razorpay_check_connection()
+    if result['status'] == 'connected':
+        order = await razorpay_create_order(1)
+        if order['status'] == 'success':
+            text = f"""✅ Rᴀᴢᴏʀᴘᴀʏ Cᴏɴɴᴇᴄᴛᴇᴅ!
+
+🔑 Kᴇʏ: <code>{RAZORPAY_KEY_ID[:20]}...</code>
+📊 Pᴀʏᴍᴇɴᴛs: {result['count']}
+🛒 Tᴇsᴛ Oʀᴅᴇʀ: <code>{order['order_id']}</code>
+💰 Aᴍᴏᴜɴᴛ: ₹{order['amount']/100}
+
+✅ Rᴀᴢᴏʀᴘᴀʏ Wᴏʀᴋɪɴɢ!"""
+        else:
+            text = f"""✅ Rᴀᴢᴏʀᴘᴀʏ Cᴏɴɴᴇᴄᴛᴇᴅ!
+
+🔑 Kᴇʏ: <code>{RAZORPAY_KEY_ID[:20]}...</code>
+📊 Pᴀʏᴍᴇɴᴛs: {result['count']}
+⚠️ Oʀᴅᴇʀ Eʀʀᴏʀ: {order['message']}"""
+    else:
+        text = f"❌ Rᴀᴢᴏʀᴘᴀʏ Eʀʀᴏʀ: {result['message']}"
+    await status_msg.edit(premium_emoji(text), parse_mode='html')
 
 @bot.on(events.CallbackQuery(data=b"admin_panel"))
 async def admin_panel_callback(event):
