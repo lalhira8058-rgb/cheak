@@ -2,7 +2,6 @@ from telethon import TelegramClient, events, Button
 import asyncio
 import aiohttp
 import aiofiles
-import base64
 import os
 import random
 import time
@@ -10,13 +9,12 @@ import json
 import re
 from datetime import datetime, timedelta
 
-API_ID = 25508845
-API_HASH = 'c0b483541482a4ed457c39c5e21b1595'
-BOT_TOKEN = '8828345521:AAFCUi4YEuvAlwllRCiM20CA0qBUP4cFNRI'
+API_ID = 39194184
+API_HASH = '1ebb44855df1c3ef005b72904d122fd3'
+BOT_TOKEN = '8912938539:AAFsQCkxKod6lVBUpX8yuwLozmyb_PiNDcw'
 ADMIN_ID = [6505395037,8674966655]
-CHECKER_API_URL = 'http://chirag-x-shopify-production.up.railway.app/shopify'
-RAZORPAY_KEY_ID = 'rzp_test_TX4VmDiHNLPTaH'
-RAZORPAY_KEY_SECRET = 'zakCJxv4rywERwmPJNEngrHc'
+CHECKER_API_URL = 'https://chirag-x-shopify-production.up.railway.app/shopify'
+SESSION_STRING = ""
 
 
 
@@ -137,7 +135,8 @@ def get_flag(code):
     
     
 DEFAULT_FILTERS = [
-    {"name": "0~10", "min": 0, "max": 10},
+    {"name": "0~5", "min": 0, "max": 5},
+    {"name": "5~10", "min": 5, "max": 10},
     {"name": "10~50", "min": 10, "max": 50},
     {"name": "50~200", "min": 50, "max": 200},
     {"name": "200~ & ", "min": 200, "max": 999999},
@@ -655,24 +654,34 @@ async def process_file_with_filters(event, user_id):
             await event.reply(premium_emoji("❌ Nᴏ ᴠᴀʟɪᴅ ᴄᴀʀᴅs ғᴏᴜɴᴅ ɪɴ ғɪʟᴇ."), parse_mode='html')
             os.remove(file_path)
             return
-        TEMP_FILE_DATA[user_id] = {'cards': cards, 'file_path': file_path}
         filters = await load_price_filters()
         gateway_filters = filters.get('shopify_global', DEFAULT_FILTERS)
-        buttons = []
-        row = []
-        for i, f in enumerate(gateway_filters):
-            row.append(Button.inline(f["name"], f"price_fltr:{i}:{user_id}".encode(), style="primary", icon=5348503265967355284))
-            if len(row) == 2:
-                buttons.append(row)
-                row = []
-        if row:
-            buttons.append(row)
-        buttons.append([Button.inline("  Cᴀɴᴄᴇʟ", b"cancel_filter", style="danger", icon=5447647474984449520)])
-        await event.reply(
-            premium_emoji(f"📁 Fɪʟᴇ ʟᴏᴀᴅᴇᴅ: {len(cards)} ᴄᴀʀᴅs ғᴏᴜɴᴅ!\n\n💰 Sᴇʟᴇᴄᴛ ᴀ ᴘʀɪᴄᴇ ғɪʟᴛᴇʀ:"),
-            buttons=buttons,
-            parse_mode='html'
-        )
+        selected_filter = gateway_filters[0]  # hamesha $0-5
+        sites_data = await load_sites_with_price()
+        if not sites_data:
+            await event.reply(premium_emoji("❌ Nᴏ sɪᴛᴇs ғᴏᴜɴᴅ ᴡɪᴛʜ ᴘʀɪᴄᴇs! Rᴜɴ /sɪᴛᴇ ғɪʀsᴛ."), parse_mode='html')
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return
+        filtered_sites = []
+        for s in sites_data:
+            price = s.get('price', 0)
+            if price == 0.0:
+                continue
+            if selected_filter['min'] <= price < selected_filter['max']:
+                filtered_sites.append(s['url'])
+        if not filtered_sites:
+            await event.reply(premium_emoji(f"❌ Nᴏ sɪᴛᴇs ғᴏᴜɴᴅ ɪɴ ʀᴀɴɢᴇ {selected_filter['name']}!"), parse_mode='html')
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return
+        status_msg = await event.reply(premium_emoji(f"🚀 Sᴛᴀʀᴛɪɴɢ ᴄʜᴇᴄᴋ ᴡɪᴛʜ ғɪʟᴛᴇʀ: {selected_filter['name']}\n\n📊 Sɪᴛᴇs: {len(filtered_sites)}\n💳 Cᴀʀᴅs: {len(cards)}"), parse_mode='html')
+        await start_mass_check(user_id, cards, filtered_sites, status_msg)
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except:
+                pass
     except Exception as e:
         await event.reply(premium_emoji(f"❌ Eʀʀᴏʀ: {e}"), parse_mode='html')
         if os.path.exists(file_path):
@@ -1025,46 +1034,7 @@ def detect_analytics(html: str, srcs: list[str]) -> list[str]:
     return found
 
 
-async def razorpay_create_order(amount):
-    try:
-        auth = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
-        headers = {
-            'Authorization': f'Basic {auth}',
-            'Content-Type': 'application/json'
-        }
-        data = {
-            'amount': int(amount * 100),
-            'currency': 'INR',
-            'receipt': f'receipt_{int(time.time())}'
-        }
-        timeout = aiohttp.ClientTimeout(total=30)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.post('https://api.razorpay.com/v1/orders', json=data, headers=headers) as resp:
-                result = await resp.json()
-                if resp.status == 200:
-                    return {'status': 'success', 'order_id': result['id'], 'amount': result['amount'], 'currency': result['currency']}
-                else:
-                    return {'status': 'error', 'message': result.get('error', {}).get('description', 'Unknown error')}
-    except Exception as e:
-        return {'status': 'error', 'message': str(e)}
-
-async def razorpay_check_connection():
-    try:
-        auth = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
-        headers = {
-            'Authorization': f'Basic {auth}',
-            'Content-Type': 'application/json'
-        }
-        timeout = aiohttp.ClientTimeout(total=15)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get('https://api.razorpay.com/v1/payments', headers=headers) as resp:
-                result = await resp.json()
-                if resp.status == 200:
-                    return {'status': 'connected', 'count': result.get('count', 0)}
-                else:
-                    return {'status': 'error', 'message': result.get('error', {}).get('description', 'Auth failed')}
-    except Exception as e:
-        return {'status': 'error', 'message': str(e)}
+@bot.on(events.NewMessage(pattern='/start'))
 async def start(event):
     user_id = event.sender_id
     is_prem = is_premium(user_id)
@@ -1118,35 +1088,6 @@ async def show_commands_callback(event):
 └─ <code>/redeem Kᴇʏ</code> → Rᴇᴅᴇᴇᴍ ᴀ ᴘʀᴇᴍɪᴜᴍ ᴋᴇʏ """
     buttons = [[Button.inline(" Bᴀᴄᴋ", b"main_menu", style="danger", icon=5445365692004071819)]]
     await event.edit(premium_emoji(commands_text), buttons=buttons, parse_mode='html')
-
-@bot.on(events.NewMessage(pattern='/razorpay'))
-async def razorpay_test(event):
-    user_id = event.sender_id
-    if user_id not in ADMIN_ID:
-        await event.reply(premium_emoji("❌ Aᴅᴍɪɴ ᴏɴʟʏ!"), parse_mode='html')
-        return
-    status_msg = await event.reply(premium_emoji("🔄 Cʜᴇᴄᴋɪɴɢ Rᴀᴢᴏʀᴘᴀʏ ᴄᴏɴɴᴇᴄᴛɪᴏɴ..."), parse_mode='html')
-    result = await razorpay_check_connection()
-    if result['status'] == 'connected':
-        order = await razorpay_create_order(1)
-        if order['status'] == 'success':
-            text = f"""✅ Rᴀᴢᴏʀᴘᴀʏ Cᴏɴɴᴇᴄᴛᴇᴅ!
-
-🔑 Kᴇʏ: <code>{RAZORPAY_KEY_ID[:20]}...</code>
-📊 Pᴀʏᴍᴇɴᴛs: {result['count']}
-🛒 Tᴇsᴛ Oʀᴅᴇʀ: <code>{order['order_id']}</code>
-💰 Aᴍᴏᴜɴᴛ: ₹{order['amount']/100}
-
-✅ Rᴀᴢᴏʀᴘᴀʏ Wᴏʀᴋɪɴɢ!"""
-        else:
-            text = f"""✅ Rᴀᴢᴏʀᴘᴀʏ Cᴏɴɴᴇᴄᴛᴇᴅ!
-
-🔑 Kᴇʏ: <code>{RAZORPAY_KEY_ID[:20]}...</code>
-📊 Pᴀʏᴍᴇɴᴛs: {result['count']}
-⚠️ Oʀᴅᴇʀ Eʀʀᴏʀ: {order['message']}"""
-    else:
-        text = f"❌ Rᴀᴢᴏʀᴘᴀʏ Eʀʀᴏʀ: {result['message']}"
-    await status_msg.edit(premium_emoji(text), parse_mode='html')
 
 @bot.on(events.CallbackQuery(data=b"admin_panel"))
 async def admin_panel_callback(event):
@@ -1340,10 +1281,9 @@ async def price_filter_callback(event):
         filtered_sites = []
         for s in sites_data:
             price = s.get('price', 0)
-            # price 0.0 means unknown/mismatch — include in lowest range filter (min==0)
-            if price == 0.0 and selected_filter['min'] == 0:
-                filtered_sites.append(s['url'])
-            elif selected_filter['min'] <= price < selected_filter['max']:
+            if price == 0.0:
+                continue  # unknown price = skip
+            if selected_filter['min'] <= price < selected_filter['max']:
                 filtered_sites.append(s['url'])
         sites_to_use = filtered_sites
     else:
@@ -3615,5 +3555,5 @@ async def stop_handler(event):
         await event.answer(" Sᴛᴏᴘᴘᴇᴅ", alert=True)
         await event.edit(premium_emoji("🛑 Cʜᴇᴄᴋɪɴɢ sᴛᴏᴘᴘᴇᴅ ʙʏ ᴜsᴇʀ."), parse_mode='html')
 
-print("✅ Bᴏᴛ sᴛᴀʀᴛᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ!")
+print("Bot started successfully!")
 bot.run_until_disconnected()
