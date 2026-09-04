@@ -135,8 +135,7 @@ def get_flag(code):
     
     
 DEFAULT_FILTERS = [
-    {"name": "0~5", "min": 0, "max": 5},
-    {"name": "5~10", "min": 5, "max": 10},
+    {"name": "0~10", "min": 0, "max": 10},
     {"name": "10~50", "min": 10, "max": 50},
     {"name": "50~200", "min": 50, "max": 200},
     {"name": "200~ & ", "min": 200, "max": 999999},
@@ -681,7 +680,7 @@ async def process_file_with_filters(event, user_id):
             return
         filters = await load_price_filters()
         gateway_filters = filters.get('shopify_global', DEFAULT_FILTERS)
-        selected_filter = gateway_filters[0]  # hamesha $0-5
+        selected_filter = gateway_filters[0]  # hamesha $0-10
         sites_data = await load_sites_with_price()
         if not sites_data:
             await event.reply(premium_emoji("❌ Nᴏ sɪᴛᴇs ғᴏᴜɴᴅ ᴡɪᴛʜ ᴘʀɪᴄᴇs! Rᴜɴ /sɪᴛᴇ ғɪʀsᴛ."), parse_mode='html')
